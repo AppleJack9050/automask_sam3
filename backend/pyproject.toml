@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=69,<82", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "automask-backend"
+version = "0.1.0"
+description = "Local-first SAM3 background removal backend"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.116,<0.117",
+  "numpy>=1.26,<3",
+  "pillow>=11.1,<12",
+  "psutil>=7,<8",
+  "pycocotools>=2.0.10,<3",
+  "python-multipart>=0.0.20,<0.0.21",
+  "rawpy>=0.25,<0.26",
+  "sqlalchemy>=2.0.39,<2.1",
+  "einops>=0.8,<0.9",
+  "sam3",
+  "setuptools<82",
+  "torch==2.10.0",
+  "torchaudio==2.10.0",
+  "torchvision==0.25.0",
+  "uvicorn>=0.35,<0.36",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<0.29",
+  "pytest>=8.3,<9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["app/tests"]
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.uv.sources]
+sam3 = { git = "https://github.com/facebookresearch/sam3.git" }
+torch = { index = "pytorch-cu128" }
+torchaudio = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true

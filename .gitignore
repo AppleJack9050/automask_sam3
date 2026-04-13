@@ -1,0 +1,8 @@
+backend/.venv/
+backend/automask_backend.egg-info/
+frontend/node_modules/
+frontend/dist/
+storage/
+.test-runtime/
+__pycache__/
+*.pyc
