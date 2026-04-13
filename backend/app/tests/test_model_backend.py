@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import os
 from types import SimpleNamespace
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
+
+TEST_ROOT = Path(__file__).resolve().parents[3] / ".test-runtime"
+os.environ["AUTOMASK_STORAGE_ROOT"] = str(TEST_ROOT / "storage")
+os.environ["AUTOMASK_DATABASE_PATH"] = str(TEST_ROOT / "storage" / "automask.db")
+os.environ["AUTOMASK_MODEL_BACKEND"] = "mock"
 
 from app.services import model_backend as model_backend_module
 
@@ -65,12 +72,36 @@ class FakeProcessor:
         }
 
 
+def test_install_timm_layers_compat_registers_legacy_alias(monkeypatch) -> None:
+    fake_layers = SimpleNamespace()
+    fake_models = SimpleNamespace()
+
+    def fake_import_module(name: str):
+        if name == "timm.layers":
+            return fake_layers
+        if name == "timm.models":
+            return fake_models
+        raise ModuleNotFoundError(name)
+
+    monkeypatch.setattr(model_backend_module.importlib, "import_module", fake_import_module)
+    monkeypatch.delitem(model_backend_module.sys.modules, "timm.models.layers", raising=False)
+
+    model_backend_module._install_timm_layers_compat()
+
+    assert model_backend_module.sys.modules["timm.models.layers"] is fake_layers
+    assert fake_models.layers is fake_layers
+
+
 def test_sam3_backend_uses_processor_state_and_predict_inst(monkeypatch, tmp_path) -> None:
     fake_model = FakeModel()
 
     def fake_import_module(name: str):
         if name == "torch":
             return FakeTorchModule()
+        if name == "timm.layers":
+            return SimpleNamespace()
+        if name == "timm.models":
+            return SimpleNamespace()
         if name == "sam3":
             return SimpleNamespace(build_sam3_image_model=lambda **kwargs: fake_model)
         if name == "sam3.model.sam3_image_processor":
@@ -95,3 +126,4 @@ def test_sam3_backend_uses_processor_state_and_predict_inst(monkeypatch, tmp_pat
     assert last_call["inference_state"]["original_width"] == 10
     assert last_call["inference_state"]["original_height"] == 8
     np.testing.assert_array_equal(last_call["point_coords"], np.array([[3.0, 4.0]]))
+    assert last_call["normalize_coords"] is True

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -10,7 +11,7 @@ from uuid import uuid4
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from sqlalchemy import select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
@@ -18,9 +19,11 @@ from app.core.database import Base, SessionLocal, engine, get_db
 from app.models.entities import (
     ArchiveFormat,
     Dataset,
+    EditAction,
     EditActionKind,
     ExportFormat,
     ExportMode,
+    ExportRequest,
     ImageTask,
     ProcessingState,
     SourceType,
@@ -119,6 +122,55 @@ def _get_image(db: Session, image_id: str) -> ImageTask:
     return image
 
 
+def _get_dataset_image(db: Session, dataset_id: str, image_id: str) -> tuple[Dataset, ImageTask]:
+    dataset = db.get(Dataset, dataset_id)
+    if dataset is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found.")
+    image = db.scalar(
+        select(ImageTask).where(
+            ImageTask.id == image_id,
+            ImageTask.dataset_id == dataset_id,
+        )
+    )
+    if image is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found.")
+    return dataset, image
+
+
+def _remove_empty_parent_dirs(root: Path, start: Path) -> None:
+    current = start
+    while current != root:
+        try:
+            current.relative_to(root)
+        except ValueError:
+            return
+        try:
+            current.rmdir()
+        except OSError:
+            return
+        current = current.parent
+
+
+def _delete_image_files(
+    dataset_id: str,
+    image_id: str,
+    relative_path: str,
+    original_path: str,
+    mask_path: str,
+) -> None:
+    originals_root = storage_service.dataset_originals_dir(dataset_id)
+    source_path = originals_root / Path(relative_path)
+    derived_path = Path(original_path)
+
+    for path in {source_path, derived_path, Path(mask_path)}:
+        path.unlink(missing_ok=True)
+
+    shutil.rmtree(storage_service.history_dir(image_id), ignore_errors=True)
+
+    for parent in {source_path.parent, derived_path.parent}:
+        _remove_empty_parent_dirs(originals_root, parent)
+
+
 def _validate_workflow_label(value: str) -> str:
     if value not in {label.value for label in WorkflowLabel}:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unsupported workflow label.")
@@ -176,17 +228,41 @@ async def _prepare_image_job(queue: InferenceQueue, image_id: str) -> None:
         image = db.get(ImageTask, image_id)
         if image is None:
             return
-        image.processing_state = ProcessingState.preparing.value
-        image.last_error = None
+        original_path = image.original_path
+        preparing = db.execute(
+            update(ImageTask)
+            .where(ImageTask.id == image_id)
+            .values(
+                processing_state=ProcessingState.preparing.value,
+                last_error=None,
+            )
+        )
         db.commit()
+        if preparing.rowcount == 0:
+            return
         try:
-            prepared = queue.backend.prepare_image(image.id, image.original_path)
-            image.width = prepared.width
-            image.height = prepared.height
-            image.processing_state = ProcessingState.ready.value
+            prepared = queue.backend.prepare_image(image_id, original_path)
         except Exception as exc:  # pragma: no cover - defensive path
-            image.processing_state = ProcessingState.failed.value
-            image.last_error = str(exc)
+            db.execute(
+                update(ImageTask)
+                .where(ImageTask.id == image_id)
+                .values(
+                    processing_state=ProcessingState.failed.value,
+                    last_error=str(exc),
+                )
+            )
+            db.commit()
+            return
+        db.execute(
+            update(ImageTask)
+            .where(ImageTask.id == image_id)
+            .values(
+                width=prepared.width,
+                height=prepared.height,
+                processing_state=ProcessingState.ready.value,
+                last_error=None,
+            )
+        )
         db.commit()
 
 
@@ -350,6 +426,41 @@ def update_workflow_label(image_id: str, payload: WorkflowLabelUpdate, db: Sessi
     db.commit()
     db.refresh(image)
     return _serialize_image(image)
+
+
+@app.delete("/api/datasets/{dataset_id}/images/{image_id}", response_model=DatasetResponse)
+def delete_dataset_image(dataset_id: str, image_id: str, db: Session = Depends(get_db)) -> DatasetResponse:
+    dataset, image = _get_dataset_image(db, dataset_id, image_id)
+    cleanup_target = {
+        "dataset_id": image.dataset_id,
+        "image_id": image.id,
+        "relative_path": image.relative_path,
+        "original_path": image.original_path,
+        "mask_path": image.mask_path,
+    }
+
+    queue: InferenceQueue = app.state.inference_queue
+    queue.discard_image(image.id)
+
+    db.execute(delete(EditAction).where(EditAction.image_id == image.id))
+    db.execute(
+        update(ExportRequest)
+        .where(ExportRequest.image_id == image.id)
+        .values(image_id=None)
+    )
+    db.delete(image)
+    db.flush()
+    dataset.item_count = db.scalar(
+        select(func.count())
+        .select_from(ImageTask)
+        .where(ImageTask.dataset_id == dataset.id)
+    ) or 0
+    db.commit()
+
+    _delete_image_files(**cleanup_target)
+
+    db.expire_all()
+    return _serialize_dataset(_get_dataset(db, dataset.id))
 
 
 @app.get("/api/images/{image_id}", response_model=EditorStateResponse)

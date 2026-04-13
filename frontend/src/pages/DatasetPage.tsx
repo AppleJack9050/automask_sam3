@@ -1,7 +1,14 @@
 import { startTransition, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
-import { exportDataset, exportImage, getDataset, startDataset, updateWorkflowLabel } from '../api'
+import {
+  deleteDatasetImage,
+  exportDataset,
+  exportImage,
+  getDataset,
+  startDataset,
+  updateWorkflowLabel,
+} from '../api'
 import type { ArchiveFormat, Dataset, ExportFormat, ExportMode, WorkflowLabel } from '../types'
 
 const workflowOptions: WorkflowLabel[] = ['todo', 'in_progress', 'completed']
@@ -18,6 +25,7 @@ export function DatasetPage() {
   const [exportMode, setExportMode] = useState<ExportMode>('transparent')
   const [archiveFormat, setArchiveFormat] = useState<ArchiveFormat>('zip')
   const [exportingId, setExportingId] = useState<string | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!datasetId) {
@@ -138,6 +146,26 @@ export function DatasetPage() {
     }
   }
 
+  const onRemoveImage = async (imageId: string, relativePath: string) => {
+    if (!dataset) {
+      return
+    }
+    const confirmed = window.confirm(`Remove ${relativePath} from this dataset task list?`)
+    if (!confirmed) {
+      return
+    }
+    try {
+      setError(null)
+      setRemovingId(imageId)
+      const nextDataset = await deleteDatasetImage(dataset.id, imageId)
+      setDataset(nextDataset)
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to remove the image from the dataset.')
+    } finally {
+      setRemovingId(null)
+    }
+  }
+
   if (!dataset) {
     return (
       <section className="page">
@@ -211,7 +239,12 @@ export function DatasetPage() {
               ))}
             </select>
           </label>
-          <button className="primary-button" type="button" onClick={onExportDataset} disabled={exportingId === 'dataset'}>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={onExportDataset}
+            disabled={exportingId === 'dataset' || dataset.images.length === 0}
+          >
             {exportingId === 'dataset' ? 'Exporting…' : 'Download dataset'}
           </button>
         </div>
@@ -234,7 +267,13 @@ export function DatasetPage() {
               </tr>
             </thead>
             <tbody>
-              {dataset.images.map((image) => (
+              {dataset.images.length === 0 ? (
+                <tr>
+                  <td className="empty-table-state" colSpan={5}>
+                    No images remain in this dataset.
+                  </td>
+                </tr>
+              ) : dataset.images.map((image) => (
                 <tr key={image.id}>
                   <td>
                     <strong>{image.relativePath}</strong>
@@ -276,9 +315,17 @@ export function DatasetPage() {
                       className="secondary-button compact-button"
                       type="button"
                       onClick={() => onExportImage(image.id, image.relativePath)}
-                      disabled={exportingId === image.id}
+                      disabled={exportingId === image.id || removingId === image.id}
                     >
                       {exportingId === image.id ? 'Exporting…' : 'Export'}
+                    </button>
+                    <button
+                      className="danger-button compact-button"
+                      type="button"
+                      onClick={() => onRemoveImage(image.id, image.relativePath)}
+                      disabled={removingId === image.id}
+                    >
+                      {removingId === image.id ? 'Removing…' : 'Remove'}
                     </button>
                   </td>
                 </tr>

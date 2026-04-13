@@ -24,14 +24,13 @@ Frontend dependencies are already installed under `frontend/node_modules`, and b
 Start the backend:
 
 ```bash
-cd /home/elek/automask
 uv run --project backend uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Start the frontend in another terminal:
 
 ```bash
-cd /home/elek/automask/frontend
+cd frontend
 npm run dev
 ```
 
@@ -45,7 +44,6 @@ That means the normal app path is GPU-first: startup should use the real SAM3 ba
 Run with explicit CUDA-backed SAM3:
 
 ```bash
-cd /home/elek/automask
 AUTOMASK_MODEL_BACKEND=sam3 AUTOMASK_MODEL_DEVICE=cuda uv run --project backend uvicorn app.main:app --reload
 ```
 
@@ -58,7 +56,6 @@ Optional environment variables:
 The mock backend is still available, but only when you request it explicitly:
 
 ```bash
-cd /home/elek/automask
 AUTOMASK_MODEL_BACKEND=mock uv run --project backend uvicorn app.main:app --reload
 ```
 

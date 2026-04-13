@@ -150,6 +150,15 @@ class InferenceQueue:
         self.preview_cache.pop(preview_id, None)
         return item
 
+    def discard_image(self, image_id: str) -> None:
+        preview_ids = [preview_id for preview_id, item in self.preview_cache.items() if item.image_id == image_id]
+        for preview_id in preview_ids:
+            self.preview_cache.pop(preview_id, None)
+        self.preview_generations.pop(image_id, None)
+        future = self.preview_futures.pop(image_id, None)
+        if future is not None and not future.done():
+            future.cancel()
+
     def _prune_previews(self) -> None:
         cutoff = datetime.now(timezone.utc) - timedelta(seconds=settings.preview_ttl_seconds)
         expired = [preview_id for preview_id, item in self.preview_cache.items() if item.created_at < cutoff]

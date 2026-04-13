@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import sys
 from collections import OrderedDict, deque
 from dataclasses import dataclass
 from typing import Any
@@ -85,6 +86,19 @@ class MockModelBackend(BaseModelBackend):
         return mask
 
 
+def _install_timm_layers_compat() -> None:
+    try:
+        timm_layers = importlib.import_module("timm.layers")
+        timm_models = importlib.import_module("timm.models")
+    except ModuleNotFoundError:
+        return
+    # Older third-party code still imports through timm.models.layers, which now emits
+    # a deprecation warning. Pre-register the new module under the legacy name so those
+    # imports resolve cleanly without changing the dependency in-place.
+    sys.modules.setdefault("timm.models.layers", timm_layers)
+    setattr(timm_models, "layers", timm_layers)
+
+
 class Sam3ModelBackend(BaseModelBackend):
     name = "sam3"
 
@@ -96,6 +110,7 @@ class Sam3ModelBackend(BaseModelBackend):
                 "CUDA backend requested, but torch.cuda.is_available() is false. "
                 "Install a CUDA-enabled PyTorch build and start the backend with GPU access."
             )
+        _install_timm_layers_compat()
         sam3 = importlib.import_module("sam3")
         sam3_processor_module = importlib.import_module("sam3.model.sam3_image_processor")
         self.model = sam3.build_sam3_image_model(
@@ -166,7 +181,7 @@ class Sam3ModelBackend(BaseModelBackend):
                     point_labels=point_labels,
                     multimask_output=True,
                     return_logits=False,
-                    normalize_coords=False,
+                    normalize_coords=True,
                 )
         best_index = int(np.argmax(scores))
         return (masks[best_index].astype(np.uint8) * 255)

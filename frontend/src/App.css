@@ -116,6 +116,7 @@ h2 {
 
 .primary-button,
 .secondary-button,
+.danger-button,
 .link-button,
 .context-menu button {
   border: none;
@@ -135,21 +136,29 @@ h2 {
 }
 
 .secondary-button,
+.danger-button,
 .link-button,
 .context-menu button {
   background: rgba(17, 32, 45, 0.08);
   color: #11202d;
 }
 
+.danger-button {
+  background: rgba(219, 71, 71, 0.14);
+  color: #8d2222;
+}
+
 .primary-button:hover,
 .secondary-button:hover,
+.danger-button:hover,
 .link-button:hover,
 .context-menu button:hover {
   transform: translateY(-1px);
 }
 
 .primary-button:disabled,
-.secondary-button:disabled {
+.secondary-button:disabled,
+.danger-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
   transform: none;
@@ -294,6 +303,11 @@ progress {
 .data-table td strong,
 .data-table td span {
   display: block;
+}
+
+.empty-table-state {
+  text-align: center;
+  color: #536e7e;
 }
 
 .status-pill {

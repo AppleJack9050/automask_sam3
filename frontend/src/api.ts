@@ -121,6 +121,12 @@ export function startDataset(datasetId: string) {
   })
 }
 
+export function deleteDatasetImage(datasetId: string, imageId: string) {
+  return fetchJson<Dataset>(`/api/datasets/${datasetId}/images/${imageId}`, {
+    method: 'DELETE',
+  })
+}
+
 export function updateWorkflowLabel(imageId: string, workflowLabel: WorkflowLabel) {
   return fetchJson(`/api/images/${imageId}/workflow-label`, {
     method: 'PATCH',

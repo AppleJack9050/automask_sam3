@@ -137,8 +137,8 @@ export function EditorPage() {
       editor.width,
       editor.height,
       editor.committedMaskPngBase64,
-      [20, 20, 20],
-      0.58,
+      [0, 0, 0],
+      1,
       showCommittedMask && !showOriginalOnly,
     )
   }, [drawCommittedMask, editor, imageUrlToken, showCommittedMask, showOriginalOnly])
@@ -165,6 +165,27 @@ export function EditorPage() {
       previewAbortRef.current?.abort()
     }
   }, [])
+
+  useEffect(() => {
+    if (!contextMenu) {
+      return
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) {
+        return
+      }
+      const menu = menuRef.current
+      const target = event.target
+      if (menu && target instanceof Node && menu.contains(target)) {
+        return
+      }
+      dismissContextMenu()
+    }
+
+    window.addEventListener('pointerdown', handlePointerDown)
+    return () => window.removeEventListener('pointerdown', handlePointerDown)
+  }, [contextMenu])
 
   useLayoutEffect(() => {
     if (!contextMenu || !stageRef.current || !menuRef.current) {
@@ -206,6 +227,11 @@ export function EditorPage() {
     previewAbortRef.current?.abort()
     lastQueuedPointRef.current = null
     setPreview(null)
+  }
+
+  const dismissContextMenu = () => {
+    setContextMenu(null)
+    lastQueuedPointRef.current = null
   }
 
   const queuePreview = (x: number, y: number) => {
@@ -448,13 +474,18 @@ export function EditorPage() {
               style={{ width: viewport.width || undefined }}
               onMouseMove={(event) => {
                 const point = relativePoint(event)
-                if (point) {
-                  queuePreview(point.x, point.y)
+                if (!point) {
+                  return
                 }
+                if (contextMenu) {
+                  return
+                }
+                queuePreview(point.x, point.y)
               }}
               onMouseLeave={() => {
-                setContextMenu(null)
-                clearPreview()
+                if (!contextMenu) {
+                  clearPreview()
+                }
               }}
               onContextMenu={(event) => {
                 event.preventDefault()
@@ -494,7 +525,7 @@ export function EditorPage() {
                   <button type="button" onClick={() => void onMaskAction('unmask')}>
                     Unmask
                   </button>
-                  <button type="button" onClick={() => setContextMenu(null)}>
+                  <button type="button" onClick={dismissContextMenu}>
                     Cancel
                   </button>
                 </div>

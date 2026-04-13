@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
+from sqlalchemy import select
 
 
 TEST_ROOT = Path(__file__).resolve().parents[3] / ".test-runtime"
@@ -18,8 +19,9 @@ os.environ["AUTOMASK_STORAGE_ROOT"] = str(TEST_ROOT / "storage")
 os.environ["AUTOMASK_DATABASE_PATH"] = str(TEST_ROOT / "storage" / "automask.db")
 os.environ["AUTOMASK_MODEL_BACKEND"] = "mock"
 
-from app.core.database import Base, engine
+from app.core.database import Base, SessionLocal, engine
 from app.main import app
+from app.models.entities import ExportRequest
 
 
 def make_image_bytes(color: tuple[int, int, int] = (120, 200, 240), size: tuple[int, int] = (48, 48)) -> bytes:
@@ -176,3 +178,61 @@ def test_invalid_transparent_jpg_export_is_rejected(client: TestClient) -> None:
         json={"format": "jpg", "mode": "transparent"},
     )
     assert response.status_code == 422
+
+
+def test_image_can_be_removed_from_dataset_task_list(client: TestClient) -> None:
+    manifest = json.dumps([{"index": 0, "relativePath": "editable.png", "size": 0}])
+    upload = client.post(
+        "/api/uploads",
+        data={"manifest": manifest},
+        files=[("files", ("editable.png", make_image_bytes(), "image/png"))],
+    )
+    dataset_id = upload.json()["id"]
+    image_id = upload.json()["images"][0]["id"]
+
+    preview = client.post(
+        f"/api/images/{image_id}/preview",
+        json={"x": 12, "y": 12, "requestId": "preview-delete"},
+    )
+    assert preview.status_code == 200
+    preview_payload = preview.json()
+
+    commit = client.post(
+        f"/api/images/{image_id}/mask",
+        json={
+            "previewId": preview_payload["previewId"],
+            "prompt": preview_payload["prompt"],
+        },
+    )
+    assert commit.status_code == 200
+
+    export = client.post(
+        f"/api/exports/image/{image_id}",
+        json={"format": "png", "mode": "overlay"},
+    )
+    assert export.status_code == 200
+
+    original_path = TEST_ROOT / "storage" / "datasets" / dataset_id / "originals" / "editable.png"
+    history_path = TEST_ROOT / "storage" / "histories" / image_id / "history.json"
+    mask_path = TEST_ROOT / "storage" / "masks" / f"{image_id}.png"
+    assert original_path.exists()
+    assert history_path.exists()
+    assert mask_path.exists()
+
+    response = client.delete(f"/api/datasets/{dataset_id}/images/{image_id}")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["itemCount"] == 0
+    assert payload["images"] == []
+
+    assert not original_path.exists()
+    assert not history_path.exists()
+    assert not mask_path.exists()
+
+    image_state = client.get(f"/api/images/{image_id}")
+    assert image_state.status_code == 404
+
+    with SessionLocal() as db:
+        export_request = db.scalar(select(ExportRequest).where(ExportRequest.dataset_id == dataset_id))
+        assert export_request is not None
+        assert export_request.image_id is None
