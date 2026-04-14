@@ -1,0 +1,192 @@
+.action-bar {
+  display: grid;
+  gap: 1rem;
+}
+
+.action-bar-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.action-bar-copy .helper-text {
+  max-width: 62ch;
+}
+
+.action-bar-aside,
+.summary-meta,
+.readiness-meta {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--text-muted);
+}
+
+.action-bar-actions {
+  align-items: center;
+}
+
+.alert-banner {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+}
+
+.alert-error {
+  background: rgba(219, 71, 71, 0.14);
+  color: #8d2222;
+}
+
+.alert-info {
+  background: rgba(36, 82, 105, 0.12);
+  color: #1d495e;
+}
+
+.alert-success {
+  background: rgba(54, 170, 109, 0.14);
+  color: #14553a;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.72rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  background: rgba(17, 32, 45, 0.08);
+}
+
+.status-ready {
+  background: rgba(54, 170, 109, 0.14);
+  color: #14553a;
+}
+
+.status-queued,
+.status-preparing {
+  background: rgba(201, 140, 26, 0.18);
+  color: #7b4c08;
+}
+
+.status-failed {
+  background: rgba(219, 71, 71, 0.14);
+  color: #8d2222;
+}
+
+.status-pending {
+  background: rgba(83, 110, 126, 0.12);
+  color: #294252;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(17, 32, 45, 0.34);
+  z-index: 100;
+}
+
+.dialog-card {
+  width: min(100%, 32rem);
+  border-radius: 28px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  box-shadow: 0 30px 80px rgba(17, 32, 45, 0.24);
+  padding: 1.5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.dialog-copy {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dialog-copy p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.empty-state,
+.loading-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.empty-state {
+  padding: 1.5rem 0.25rem 0.5rem;
+  text-align: center;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.empty-state-action {
+  display: flex;
+  justify-content: center;
+}
+
+.count-list,
+.selection-list,
+.image-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.count-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.count-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 18px;
+  background: rgba(17, 32, 45, 0.05);
+}
+
+.action-reason {
+  margin-top: 0.9rem;
+}
+
+.row-error {
+  margin-top: 0.2rem;
+  color: #8d2222;
+}
+
+.disabled-link {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.setup-note {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  background: rgba(17, 32, 45, 0.05);
+}
+
+.setup-note p,
+.loading-panel p {
+  margin: 0;
+}
+
+.setup-note code {
+  display: block;
+  overflow: auto;
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  background: #132530;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.sidebar-status .status-pill {
+  font-size: 0.78rem;
+}

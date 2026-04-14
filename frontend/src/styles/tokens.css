@@ -1,0 +1,62 @@
+:root {
+  color-scheme: light;
+  font-family:
+    'Manrope',
+    'Segoe UI',
+    sans-serif;
+  line-height: 1.5;
+  font-weight: 500;
+  color: #11202d;
+  background:
+    radial-gradient(circle at top left, rgba(255, 230, 201, 0.95), transparent 40%),
+    radial-gradient(circle at right, rgba(126, 181, 255, 0.25), transparent 30%),
+    linear-gradient(180deg, #f4f6f8, #e8eef1 50%, #dfe7eb);
+  --surface: rgba(255, 255, 255, 0.75);
+  --surface-strong: rgba(255, 255, 255, 0.9);
+  --surface-muted: rgba(17, 32, 45, 0.05);
+  --border: rgba(17, 32, 45, 0.12);
+  --border-soft: rgba(17, 32, 45, 0.08);
+  --text-muted: #405566;
+  --text-soft: #5a6c79;
+  --shadow: 0 24px 60px rgba(17, 32, 45, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

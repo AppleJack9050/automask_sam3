@@ -1,88 +1,123 @@
 import { startTransition, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import {
   deleteDatasetImage,
   exportDataset,
   exportImage,
   getDataset,
+  getHealth,
   startDataset,
   updateWorkflowLabel,
 } from '../api'
-import type { ArchiveFormat, Dataset, ExportFormat, ExportMode, WorkflowLabel } from '../types'
+import { AlertBanner } from '../components/AlertBanner'
+import { ConfirmationDialog } from '../components/ConfirmationDialog'
+import { LoadingPanel } from '../components/LoadingPanel'
+import { useAsyncResource } from '../hooks/useAsyncResource'
+import { usePolling } from '../hooks/usePolling'
+import { DatasetFilters } from '../sections/dataset/DatasetFilters'
+import { DatasetSummary } from '../sections/dataset/DatasetSummary'
+import { DatasetTaskTable } from '../sections/dataset/DatasetTaskTable'
+import type {
+  ArchiveFormat,
+  DatasetImage,
+  ExportFormat,
+  ExportMode,
+  ProcessingState,
+  WorkflowLabel,
+} from '../types'
+import {
+  archiveOptions,
+  exportModes,
+  formatOptions,
+  getDatasetExportReason,
+  getStartProcessingReason,
+} from '../workflow-ui'
 
-const workflowOptions: WorkflowLabel[] = ['todo', 'in_progress', 'completed']
-const formatOptions: ExportFormat[] = ['png', 'jpg', 'bmp', 'tiff']
-const archiveOptions: ArchiveFormat[] = ['zip', 'tar.gz']
-const exportModes: ExportMode[] = ['transparent', 'binary_mask', 'overlay']
+type LocationFlashState = {
+  flash?: string
+} | null
 
 export function DatasetPage() {
   const { datasetId = '' } = useParams()
-  const [dataset, setDataset] = useState<Dataset | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [flash, setFlash] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [isStarting, setIsStarting] = useState(false)
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png')
   const [exportMode, setExportMode] = useState<ExportMode>('transparent')
   const [archiveFormat, setArchiveFormat] = useState<ArchiveFormat>('zip')
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [pendingRemoval, setPendingRemoval] = useState<DatasetImage | null>(null)
+  const [search, setSearch] = useState('')
+  const [processingFilter, setProcessingFilter] = useState<ProcessingState | 'all'>('all')
+  const [labelFilter, setLabelFilter] = useState<WorkflowLabel | 'all'>('all')
+  const {
+    data: dataset,
+    error: datasetError,
+    isLoading,
+    reload: reloadDataset,
+    setData: setDataset,
+  } = useAsyncResource(() => getDataset(datasetId), [datasetId])
+  const { data: health } = useAsyncResource(() => getHealth(), [])
 
   useEffect(() => {
-    if (!datasetId) {
+    const nextFlash = (location.state as LocationFlashState)?.flash
+    if (!nextFlash) {
       return
     }
+    setFlash(nextFlash)
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.pathname, location.state, navigate])
 
-    let active = true
-    getDataset(datasetId)
-      .then((nextDataset) => {
-        if (active) {
-          setDataset(nextDataset)
-          setError(null)
-        }
-      })
-      .catch((requestError) => {
-        if (active) {
-          setError(requestError instanceof Error ? requestError.message : 'Failed to load dataset.')
-        }
-      })
-
-    return () => {
-      active = false
-    }
-  }, [datasetId])
-
-  useEffect(() => {
-    if (!dataset?.images.some((image) => image.processingState === 'queued' || image.processingState === 'preparing')) {
+  usePolling(Boolean(dataset?.summary.hasInFlightWork), 1600, async () => {
+    if (!dataset) {
       return
     }
+    const nextDataset = await getDataset(dataset.id)
+    startTransition(() => setDataset(nextDataset))
+  })
 
-    const timer = window.setInterval(() => {
-      getDataset(dataset.id)
-        .then((nextDataset) => {
-          startTransition(() => setDataset(nextDataset))
-        })
-        .catch(() => undefined)
-    }, 1600)
+  const effectiveFormat =
+    exportMode === 'transparent' && (exportFormat === 'jpg' || exportFormat === 'bmp')
+      ? 'png'
+      : exportFormat
+  const appendUploadPath = `/?datasetId=${datasetId}`
 
-    return () => window.clearInterval(timer)
-  }, [dataset])
+  const filteredImages = useMemo(() => {
+    if (!dataset) {
+      return []
+    }
+    const searchValue = search.trim().toLowerCase()
+    return dataset.images.filter((image) => {
+      if (processingFilter !== 'all' && image.processingState !== processingFilter) {
+        return false
+      }
+      if (labelFilter !== 'all' && image.workflowLabel !== labelFilter) {
+        return false
+      }
+      if (searchValue && !image.relativePath.toLowerCase().includes(searchValue)) {
+        return false
+      }
+      return true
+    })
+  }, [dataset, labelFilter, processingFilter, search])
 
-  const readyCount = useMemo(
-    () => dataset?.images.filter((image) => image.processingState === 'ready').length ?? 0,
-    [dataset],
-  )
+  const firstReadyImage = dataset?.images.find((image) => image.actions.canOpenEditor) ?? null
 
   const onStart = async () => {
     if (!dataset) {
       return
     }
     try {
-      setError(null)
+      setActionError(null)
       setIsStarting(true)
       const nextDataset = await startDataset(dataset.id)
       setDataset(nextDataset)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to start dataset processing.')
+      setActionError(requestError instanceof Error ? requestError.message : 'Failed to start dataset processing.')
     } finally {
       setIsStarting(false)
     }
@@ -93,28 +128,21 @@ export function DatasetPage() {
       return
     }
     try {
+      setActionError(null)
       await updateWorkflowLabel(imageId, workflowLabel)
-      setDataset({
-        ...dataset,
-        images: dataset.images.map((image) =>
-          image.id === imageId ? { ...image, workflowLabel } : image,
-        ),
-      })
+      const nextDataset = await getDataset(dataset.id)
+      setDataset(nextDataset)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to update the workflow label.')
+      setActionError(requestError instanceof Error ? requestError.message : 'Failed to update the workflow label.')
     }
   }
-
-  const effectiveFormat =
-    exportMode === 'transparent' && (exportFormat === 'jpg' || exportFormat === 'bmp')
-      ? 'png'
-      : exportFormat
 
   const onExportDataset = async () => {
     if (!dataset) {
       return
     }
     try {
+      setActionError(null)
       setExportingId('dataset')
       await exportDataset(
         dataset.id,
@@ -124,7 +152,7 @@ export function DatasetPage() {
         `${dataset.name}.${archiveFormat === 'zip' ? 'zip' : 'tar.gz'}`,
       )
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Dataset export failed.')
+      setActionError(requestError instanceof Error ? requestError.message : 'Dataset export failed.')
     } finally {
       setExportingId(null)
     }
@@ -132,6 +160,7 @@ export function DatasetPage() {
 
   const onExportImage = async (imageId: string, relativePath: string) => {
     try {
+      setActionError(null)
       setExportingId(imageId)
       await exportImage(
         imageId,
@@ -140,38 +169,97 @@ export function DatasetPage() {
         relativePath.replace(/\.[^.]+$/, `.${effectiveFormat}`),
       )
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Image export failed.')
+      setActionError(requestError instanceof Error ? requestError.message : 'Image export failed.')
     } finally {
       setExportingId(null)
     }
   }
 
-  const onRemoveImage = async (imageId: string, relativePath: string) => {
-    if (!dataset) {
-      return
-    }
-    const confirmed = window.confirm(`Remove ${relativePath} from this dataset task list?`)
-    if (!confirmed) {
+  const onConfirmRemoveImage = async () => {
+    if (!dataset || !pendingRemoval) {
       return
     }
     try {
-      setError(null)
-      setRemovingId(imageId)
-      const nextDataset = await deleteDatasetImage(dataset.id, imageId)
+      setActionError(null)
+      setRemovingId(pendingRemoval.id)
+      const nextDataset = await deleteDatasetImage(dataset.id, pendingRemoval.id)
       setDataset(nextDataset)
+      setPendingRemoval(null)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to remove the image from the dataset.')
+      setActionError(requestError instanceof Error ? requestError.message : 'Failed to remove the image from the dataset.')
     } finally {
       setRemovingId(null)
     }
+  }
+
+  const primaryActionButton = (() => {
+    if (!dataset) {
+      return null
+    }
+
+    switch (dataset.actions.recommendedPrimaryAction) {
+      case 'start_processing':
+      case 'processing':
+        return (
+          <button
+            className="primary-button"
+            type="button"
+            onClick={dataset.actions.recommendedPrimaryAction === 'start_processing' ? () => void onStart() : undefined}
+            disabled={!dataset.actions.canStartProcessing || isStarting}
+          >
+            {isStarting ? 'Queueing…' : dataset.actions.recommendedPrimaryAction === 'processing' ? 'Processing…' : 'Start processing'}
+          </button>
+        )
+      case 'review_ready':
+        return firstReadyImage ? (
+          <Link className="primary-button link-button-plain" to={`/datasets/${dataset.id}/images/${firstReadyImage.id}`}>
+            Review ready image
+          </Link>
+        ) : null
+      case 'export_dataset':
+        return (
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => void onExportDataset()}
+            disabled={!dataset.actions.canExportDataset || exportingId === 'dataset'}
+          >
+            {exportingId === 'dataset' ? 'Exporting…' : 'Export dataset'}
+          </button>
+        )
+      case 'upload_more':
+        return (
+          <Link className="primary-button link-button-plain" to={appendUploadPath}>
+            Add more data
+          </Link>
+        )
+      default:
+        return null
+    }
+  })()
+
+  const actionReason = dataset
+    ? dataset.actions.recommendedPrimaryAction === 'start_processing' ||
+      dataset.actions.recommendedPrimaryAction === 'processing'
+      ? getStartProcessingReason(dataset, health ?? null)
+      : dataset.actions.recommendedPrimaryAction === 'export_dataset'
+        ? getDatasetExportReason(dataset)
+        : null
+    : null
+
+  if (isLoading && !dataset) {
+    return <LoadingPanel title="Dataset loading" description="Reading dataset inventory and workflow summary…" />
   }
 
   if (!dataset) {
     return (
       <section className="page">
         <div className="panel">
-          <h1>Dataset loading</h1>
-          <p>{error ?? 'Reading dataset inventory…'}</p>
+          <h1>Dataset unavailable</h1>
+          <p>{actionError ?? datasetError ?? 'The dataset could not be loaded.'}</p>
+          <button className="secondary-button" type="button" onClick={() => void reloadDataset()}>
+            Retry
+          </button>
         </div>
       </section>
     )
@@ -184,25 +272,30 @@ export function DatasetPage() {
           <p className="eyebrow">Dataset workspace</p>
           <h1>{dataset.name}</h1>
           <p className="lead">
-            {dataset.itemCount} files staged. {readyCount} ready for interactive editing.
+            {dataset.itemCount} staged items. Use the summary first, then filter the task list down to what needs attention.
           </p>
-        </div>
-        <div className="toolbar-card">
-          <button className="primary-button" type="button" onClick={onStart} disabled={isStarting}>
-            {isStarting ? 'Queueing…' : 'Start sequential processing'}
-          </button>
-          <Link className="secondary-button" to="/">
-            Upload more data
-          </Link>
         </div>
       </div>
 
-      {error ? <p className="error-banner">{error}</p> : null}
+      {flash ? <AlertBanner kind="success" message={flash} /> : null}
+      {actionError ? <AlertBanner kind="error" message={actionError} /> : null}
+      {datasetError ? <AlertBanner kind="error" message={datasetError} /> : null}
 
-      <div className="export-card">
+      <DatasetSummary
+        dataset={dataset}
+        actionReason={actionReason}
+        primaryAction={primaryActionButton}
+        secondaryAction={
+          <Link className="secondary-button link-button-plain" to={appendUploadPath}>
+            Add more data
+          </Link>
+        }
+      />
+
+      <section className="export-card">
         <div className="section-heading">
           <h2>Dataset export</h2>
-          <span>{dataset.rootPath}</span>
+          <span>{dataset.actions.canExportDataset ? 'Ready when you are' : 'Currently unavailable'}</span>
         </div>
         <div className="toolbar-grid">
           <label>
@@ -242,98 +335,69 @@ export function DatasetPage() {
           <button
             className="primary-button"
             type="button"
-            onClick={onExportDataset}
-            disabled={exportingId === 'dataset' || dataset.images.length === 0}
+            onClick={() => void onExportDataset()}
+            disabled={!dataset.actions.canExportDataset || exportingId === 'dataset'}
           >
             {exportingId === 'dataset' ? 'Exporting…' : 'Download dataset'}
           </button>
         </div>
-      </div>
+        {getDatasetExportReason(dataset) ? (
+          <p className="helper-text action-reason">{getDatasetExportReason(dataset)}</p>
+        ) : null}
+      </section>
 
-      <div className="panel">
+      <section className="panel">
         <div className="section-heading">
-          <h2>Task list</h2>
-          <span>Labels are manual workflow markers only.</span>
+          <div>
+            <h2>Task list</h2>
+            <p className="helper-text">Filters are client-side. Labels stay manual and independent from model processing.</p>
+          </div>
+          <span>{filteredImages.length} shown</span>
         </div>
-        <div className="table-shell">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Image</th>
-                <th>Status</th>
-                <th>Label</th>
-                <th>History</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dataset.images.length === 0 ? (
-                <tr>
-                  <td className="empty-table-state" colSpan={5}>
-                    No images remain in this dataset.
-                  </td>
-                </tr>
-              ) : dataset.images.map((image) => (
-                <tr key={image.id}>
-                  <td>
-                    <strong>{image.relativePath}</strong>
-                    <span>{image.width && image.height ? `${image.width} × ${image.height}` : 'Dimensions pending'}</span>
-                    {image.lastError ? <span className="row-error">{image.lastError}</span> : null}
-                  </td>
-                  <td>
-                    <span className={`status-pill status-${image.processingState}`}>
-                      {image.processingState}
-                    </span>
-                  </td>
-                  <td>
-                    <select
-                      value={image.workflowLabel}
-                      onChange={(event) => onUpdateLabel(image.id, event.target.value as WorkflowLabel)}
-                    >
-                      {workflowOptions.map((label) => (
-                        <option key={label} value={label}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>{image.historyDepth} steps</td>
-                  <td className="row-actions">
-                    <Link
-                      className={`link-button ${image.processingState !== 'ready' ? 'disabled-link' : ''}`}
-                      to={`/datasets/${dataset.id}/images/${image.id}`}
-                      aria-disabled={image.processingState !== 'ready'}
-                      onClick={(event) => {
-                        if (image.processingState !== 'ready') {
-                          event.preventDefault()
-                        }
-                      }}
-                    >
-                      Open editor
-                    </Link>
-                    <button
-                      className="secondary-button compact-button"
-                      type="button"
-                      onClick={() => onExportImage(image.id, image.relativePath)}
-                      disabled={exportingId === image.id || removingId === image.id}
-                    >
-                      {exportingId === image.id ? 'Exporting…' : 'Export'}
-                    </button>
-                    <button
-                      className="danger-button compact-button"
-                      type="button"
-                      onClick={() => onRemoveImage(image.id, image.relativePath)}
-                      disabled={removingId === image.id}
-                    >
-                      {removingId === image.id ? 'Removing…' : 'Remove'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+
+        <DatasetFilters
+          search={search}
+          processingState={processingFilter}
+          workflowLabel={labelFilter}
+          onSearchChange={setSearch}
+          onProcessingStateChange={setProcessingFilter}
+          onWorkflowLabelChange={setLabelFilter}
+        />
+
+        <DatasetTaskTable
+          datasetId={dataset.id}
+          images={filteredImages}
+          isEmptyDataset={dataset.images.length === 0}
+          exportingId={exportingId}
+          removingId={removingId}
+          onUpdateLabel={(imageId, workflowLabel) => void onUpdateLabel(imageId, workflowLabel)}
+          onExportImage={(imageId, relativePath) => void onExportImage(imageId, relativePath)}
+          onRemoveImage={(imageId) => {
+            const image = dataset.images.find((item) => item.id === imageId)
+            if (image) {
+              setPendingRemoval(image)
+            }
+          }}
+        />
+      </section>
+
+      <ConfirmationDialog
+        open={Boolean(pendingRemoval)}
+        title="Remove image from task list?"
+        description={
+          pendingRemoval
+            ? `${pendingRemoval.relativePath} will be removed from this dataset, along with its saved mask and history snapshots.`
+            : ''
+        }
+        confirmLabel="Remove image"
+        isWorking={Boolean(removingId)}
+        onConfirm={() => void onConfirmRemoveImage()}
+        onCancel={() => {
+          if (!removingId) {
+            setPendingRemoval(null)
+          }
+        }}
+      />
     </section>
   )
 }

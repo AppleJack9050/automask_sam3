@@ -3,6 +3,12 @@ export type ProcessingState = 'pending' | 'queued' | 'preparing' | 'ready' | 'fa
 export type ExportMode = 'transparent' | 'binary_mask' | 'overlay'
 export type ExportFormat = 'png' | 'jpg' | 'bmp' | 'tiff'
 export type ArchiveFormat = 'zip' | 'tar.gz'
+export type RecommendedPrimaryAction =
+  | 'start_processing'
+  | 'processing'
+  | 'review_ready'
+  | 'export_dataset'
+  | 'upload_more'
 
 export type UploadEntry = {
   file: File
@@ -12,6 +18,31 @@ export type UploadEntry = {
 export type UploadProgressEntry = {
   relativePath: string
   progress: number
+}
+
+export type HealthStatus = {
+  status: string
+  backend: string
+  device: string
+  ready: boolean
+  message?: string | null
+}
+
+export type ImageActions = {
+  canOpenEditor: boolean
+  canRemove: boolean
+}
+
+export type DatasetSummary = {
+  processingCounts: Record<ProcessingState, number>
+  labelCounts: Record<WorkflowLabel, number>
+  hasInFlightWork: boolean
+}
+
+export type DatasetActions = {
+  canStartProcessing: boolean
+  canExportDataset: boolean
+  recommendedPrimaryAction: RecommendedPrimaryAction
 }
 
 export type DatasetImage = {
@@ -27,6 +58,7 @@ export type DatasetImage = {
   lastError?: string | null
   originalUrl: string
   historyUrl: string
+  actions: ImageActions
 }
 
 export type Dataset = {
@@ -36,6 +68,8 @@ export type Dataset = {
   rootPath: string
   itemCount: number
   createdAt: string
+  summary: DatasetSummary
+  actions: DatasetActions
   images: DatasetImage[]
 }
 

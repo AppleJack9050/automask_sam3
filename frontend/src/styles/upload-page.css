@@ -1,0 +1,117 @@
+.upload-page {
+  grid-template-columns: minmax(0, 1.1fr) minmax(20rem, 0.9fr);
+  align-items: start;
+}
+
+.upload-column {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.hero-panel {
+  min-height: 19rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.dropzone {
+  min-height: 19rem;
+  display: grid;
+  place-items: center;
+  border-radius: 30px;
+  border: 2px dashed rgba(35, 82, 105, 0.35);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.76)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(35, 82, 105, 0.06),
+      rgba(35, 82, 105, 0.06) 10px,
+      transparent 10px,
+      transparent 20px
+    );
+  text-align: center;
+  padding: 2rem;
+}
+
+.dropzone.dragging {
+  border-color: #245269;
+  background:
+    linear-gradient(145deg, rgba(36, 82, 105, 0.16), rgba(255, 255, 255, 0.88)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(36, 82, 105, 0.12),
+      rgba(36, 82, 105, 0.12) 10px,
+      transparent 10px,
+      transparent 20px
+    );
+}
+
+.dropzone-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.upload-setup-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.selection-metrics {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  margin: 1rem 0 1.2rem;
+}
+
+.metric-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: 20px;
+  background: rgba(17, 32, 45, 0.05);
+}
+
+.metric-label {
+  color: var(--text-soft);
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.selection-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.selection-list li {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.selection-list li div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+progress {
+  width: 100%;
+  height: 0.55rem;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+@media (max-width: 1080px) {
+  .upload-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .dropzone,
+  .hero-panel {
+    min-height: auto;
+  }
+}

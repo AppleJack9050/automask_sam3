@@ -1,6 +1,11 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
-import './App.css'
+import './styles/tokens.css'
+import './styles/layout.css'
+import './styles/components.css'
+import './styles/upload-page.css'
+import './styles/dataset-page.css'
+import './styles/editor-page.css'
 import { DatasetPage } from './pages/DatasetPage'
 import { EditorPage } from './pages/EditorPage'
 import { UploadPage } from './pages/UploadPage'

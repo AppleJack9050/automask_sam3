@@ -127,3 +127,17 @@ def test_sam3_backend_uses_processor_state_and_predict_inst(monkeypatch, tmp_pat
     assert last_call["inference_state"]["original_height"] == 8
     np.testing.assert_array_equal(last_call["point_coords"], np.array([[3.0, 4.0]]))
     assert last_call["normalize_coords"] is True
+
+
+def test_build_sam3_or_unavailable_returns_readiness_message(monkeypatch) -> None:
+    def fail_backend(*args, **kwargs):
+        raise RuntimeError("CUDA-enabled PyTorch is not available.")
+
+    monkeypatch.setattr(model_backend_module, "Sam3ModelBackend", fail_backend)
+
+    backend = model_backend_module._build_sam3_or_unavailable()
+
+    assert backend.name == "sam3"
+    assert backend.ready is False
+    assert backend.device == model_backend_module.settings.model_device
+    assert backend.message == "CUDA-enabled PyTorch is not available."

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import logging
 import sys
 from collections import OrderedDict, deque
 from dataclasses import dataclass
@@ -12,6 +13,8 @@ from PIL import Image
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class PreparedImage:
@@ -21,6 +24,9 @@ class PreparedImage:
 
 class BaseModelBackend:
     name = "base"
+    ready = True
+    message: str | None = None
+    device = "n/a"
 
     def prepare_image(self, image_id: str, image_path: str) -> PreparedImage:
         raise NotImplementedError
@@ -31,6 +37,7 @@ class BaseModelBackend:
 
 class MockModelBackend(BaseModelBackend):
     name = "mock"
+    device = "cpu"
 
     def __init__(self, cache_size: int = 8) -> None:
         self.cache_size = cache_size
@@ -84,6 +91,21 @@ class MockModelBackend(BaseModelBackend):
             ellipse = ((xx - px) ** 2) / max(radius, 1) ** 2 + ((yy - py) ** 2) / max(radius, 1) ** 2 <= 1
             mask = ellipse.astype(np.uint8) * 255
         return mask
+
+
+class UnavailableModelBackend(BaseModelBackend):
+    ready = False
+
+    def __init__(self, requested_backend: str, error: Exception) -> None:
+        self.name = requested_backend
+        self.device = settings.model_device
+        self.message = str(error) or f"{requested_backend} is unavailable."
+
+    def prepare_image(self, image_id: str, image_path: str) -> PreparedImage:  # pragma: no cover - defensive
+        raise RuntimeError(self.message or "Model backend is unavailable.")
+
+    def preview_mask(self, image_id: str, image_path: str, x: float, y: float) -> np.ndarray:  # pragma: no cover - defensive
+        raise RuntimeError(self.message or "Model backend is unavailable.")
 
 
 def _install_timm_layers_compat() -> None:
@@ -187,14 +209,22 @@ class Sam3ModelBackend(BaseModelBackend):
         return (masks[best_index].astype(np.uint8) * 255)
 
 
+def _build_sam3_or_unavailable() -> BaseModelBackend:
+    try:
+        return Sam3ModelBackend()
+    except Exception as exc:  # pragma: no cover - exercised through readiness tests
+        logger.exception("Failed to initialize the SAM3 backend.")
+        return UnavailableModelBackend("sam3", exc)
+
+
 def build_model_backend() -> BaseModelBackend:
     if settings.model_backend == "mock":
         return MockModelBackend()
     if settings.model_backend == "sam3":
-        return Sam3ModelBackend()
+        return _build_sam3_or_unavailable()
     if settings.model_backend == "auto":
         if settings.model_device == "cuda":
-            return Sam3ModelBackend()
+            return _build_sam3_or_unavailable()
         try:
             return Sam3ModelBackend()
         except Exception:

@@ -1,9 +1,11 @@
 import type {
   ArchiveFormat,
   Dataset,
+  DatasetImage,
   EditorState,
   ExportFormat,
   ExportMode,
+  HealthStatus,
   PreviewResponse,
   UploadEntry,
   UploadProgressEntry,
@@ -67,10 +69,14 @@ export function uploadEntries(
   entries: UploadEntry[],
   datasetName: string,
   onProgress: (items: UploadProgressEntry[]) => void,
+  options?: { datasetId?: string },
 ) {
   return new Promise<Dataset>((resolve, reject) => {
     const formData = new FormData()
     formData.append('dataset_name', datasetName)
+    if (options?.datasetId) {
+      formData.append('dataset_id', options.datasetId)
+    }
     formData.append(
       'manifest',
       JSON.stringify(
@@ -111,6 +117,10 @@ export function uploadEntries(
   })
 }
 
+export function getHealth() {
+  return fetchJson<HealthStatus>('/api/health')
+}
+
 export function getDataset(datasetId: string) {
   return fetchJson<Dataset>(`/api/datasets/${datasetId}`)
 }
@@ -128,7 +138,7 @@ export function deleteDatasetImage(datasetId: string, imageId: string) {
 }
 
 export function updateWorkflowLabel(imageId: string, workflowLabel: WorkflowLabel) {
-  return fetchJson(`/api/images/${imageId}/workflow-label`, {
+  return fetchJson<DatasetImage>(`/api/images/${imageId}/workflow-label`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',

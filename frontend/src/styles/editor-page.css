@@ -1,0 +1,114 @@
+.editor-page {
+  grid-template-columns: minmax(17rem, 24rem) minmax(0, 1fr);
+  align-items: start;
+}
+
+.sidebar {
+  position: sticky;
+  top: 2rem;
+}
+
+.image-nav-list {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.image-nav-list li a {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  background: rgba(17, 32, 45, 0.05);
+}
+
+.image-nav-list li.active a {
+  background: rgba(36, 82, 105, 0.16);
+}
+
+.editor-main {
+  display: grid;
+  gap: 1rem;
+}
+
+.control-groups {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+.control-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.editor-toolbar {
+  align-items: end;
+}
+
+.editor-stage-shell {
+  padding: 1rem;
+}
+
+.editor-stage {
+  position: relative;
+  width: 100%;
+  border-radius: 24px;
+  overflow: hidden;
+  background: conic-gradient(
+    from 90deg,
+    rgba(17, 32, 45, 0.18) 0 25%,
+    rgba(255, 255, 255, 0.45) 0 50%,
+    rgba(17, 32, 45, 0.18) 0 75%,
+    rgba(255, 255, 255, 0.45) 0
+  );
+  background-size: 32px 32px;
+}
+
+.editor-image,
+.editor-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.editor-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.context-menu {
+  position: absolute;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 18px;
+  box-shadow: 0 24px 48px rgba(17, 32, 45, 0.18);
+  border: 1px solid var(--border-soft);
+  z-index: 20;
+}
+
+.helper-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--text-soft);
+  font-size: 0.95rem;
+  padding-top: 0.9rem;
+}
+
+@media (max-width: 1080px) {
+  .editor-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
+  }
+
+  .helper-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

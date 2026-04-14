@@ -1,0 +1,217 @@
+.app-shell {
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.app-header {
+  margin-bottom: 1.5rem;
+}
+
+.app-title,
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family:
+    'Space Grotesk',
+    'Manrope',
+    sans-serif;
+  letter-spacing: -0.04em;
+}
+
+.page {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.panel,
+.hero-panel,
+.selection-panel,
+.toolbar-card,
+.export-card {
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+}
+
+.panel,
+.hero-panel,
+.selection-panel,
+.export-card {
+  padding: 1.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.78rem;
+  color: #6c5b4b;
+}
+
+.lead {
+  margin: 0.75rem 0 0;
+  max-width: 62ch;
+  color: var(--text-muted);
+}
+
+.helper-text {
+  margin: 0.4rem 0 0;
+  color: var(--text-soft);
+}
+
+.hero-actions,
+.sidebar-links,
+.dataset-name-row,
+.toolbar-grid,
+.row-actions,
+.action-bar-actions,
+.dialog-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.section-heading,
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.toolbar-card {
+  padding: 1rem 1.2rem;
+  display: grid;
+  gap: 0.75rem;
+  min-width: 18rem;
+}
+
+.primary-button,
+.secondary-button,
+.danger-button,
+.link-button,
+.context-menu button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.82rem 1.25rem;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+  cursor: pointer;
+}
+
+.primary-button {
+  background: linear-gradient(135deg, #132530, #245269);
+  color: white;
+  box-shadow: 0 14px 30px rgba(22, 54, 72, 0.24);
+}
+
+.secondary-button,
+.danger-button,
+.link-button,
+.context-menu button {
+  background: rgba(17, 32, 45, 0.08);
+  color: #11202d;
+}
+
+.danger-button {
+  background: rgba(219, 71, 71, 0.14);
+  color: #8d2222;
+}
+
+.compact-button {
+  padding: 0.65rem 0.95rem;
+}
+
+.primary-button:hover,
+.secondary-button:hover,
+.danger-button:hover,
+.link-button:hover,
+.context-menu button:hover {
+  transform: translateY(-1px);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled,
+.danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
+.link-button-plain {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dataset-name-row label,
+.toolbar-grid label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 10rem;
+  color: var(--text-muted);
+}
+
+.dataset-name-row input,
+.toolbar-grid select,
+.toolbar-grid input,
+.data-table select {
+  border: 1px solid rgba(17, 32, 45, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 0.8rem 0.95rem;
+}
+
+.table-shell {
+  overflow: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 0.95rem 0.8rem;
+  border-top: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+
+.data-table td strong,
+.data-table td span {
+  display: block;
+}
+
+@media (max-width: 1080px) {
+  .page-header,
+  .section-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 1rem;
+  }
+
+  .toolbar-grid,
+  .hero-actions,
+  .dataset-name-row,
+  .action-bar-actions,
+  .dialog-actions {
+    flex-direction: column;
+  }
+
+  .toolbar-grid label,
+  .dataset-name-row label {
+    width: 100%;
+  }
+}

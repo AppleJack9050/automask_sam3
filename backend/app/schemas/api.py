@@ -6,6 +6,45 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class HealthResponse(BaseModel):
+    status: str
+    backend: str
+    device: str
+    ready: bool
+    message: str | None = None
+
+
+class ImageActionsResponse(BaseModel):
+    canOpenEditor: bool
+    canRemove: bool
+
+
+class ProcessingCountsResponse(BaseModel):
+    pending: int
+    queued: int
+    preparing: int
+    ready: int
+    failed: int
+
+
+class LabelCountsResponse(BaseModel):
+    todo: int
+    in_progress: int
+    completed: int
+
+
+class DatasetSummaryResponse(BaseModel):
+    processingCounts: ProcessingCountsResponse
+    labelCounts: LabelCountsResponse
+    hasInFlightWork: bool
+
+
+class DatasetActionsResponse(BaseModel):
+    canStartProcessing: bool
+    canExportDataset: bool
+    recommendedPrimaryAction: str
+
+
 class UploadManifestEntry(BaseModel):
     index: int
     relativePath: str
@@ -25,6 +64,7 @@ class UploadResponseImage(BaseModel):
     lastError: str | None = None
     originalUrl: str
     historyUrl: str
+    actions: ImageActionsResponse
 
 
 class DatasetResponse(BaseModel):
@@ -34,6 +74,8 @@ class DatasetResponse(BaseModel):
     rootPath: str
     itemCount: int
     createdAt: datetime
+    summary: DatasetSummaryResponse
+    actions: DatasetActionsResponse
     images: list[UploadResponseImage]
 
 
